@@ -1,0 +1,70 @@
+// http://rweather.github.io/arduinolibs/index.html
+
+#include <SPI.h>
+#include <RH_RF95.h>
+
+#include "defines.h"
+#include "globals.h"
+#include "setup.h"
+#include "misc.h"
+#include "LoRa.h"
+#include "leds.h"
+#include "messages.h"
+
+RH_RF95 rf95(RFM95_CS, RFM95_INT);
+
+static uint8_t TX_stream_buffer[TXData_t_size];
+static uint8_t TX_stream_buffer_size = TXData_t_size;
+
+static TXData_t TX_message = TXData_t_init_zero;
+static TXData_t RX_msg = TXData_t_init_zero;
+
+static uint8_t RX_buffer[RH_RF95_MAX_MESSAGE_LEN];
+static uint8_t RX_buffer_size = RH_RF95_MAX_MESSAGE_LEN;
+
+void setup() {
+  initSerialToPC(115200);
+  initLoRa(rf95);
+  digitalWrite(buildin_led, LOW);
+  memset(TX_stream_buffer, 0, TXData_t_size);
+  memset(RX_buffer, 0, RX_buffer_size);
+  
+  SensorData_t data_from_sensors = {10, {10, 45, 34, 123, 100, 3,10, 45, 34, 123, 100, 3, 45, 34}};
+  SensorData_t data_from_sensors2 = {11, {11, 46, 35, 124, 101, 4}};
+  TX_message.tx_count = 1;
+  TX_message.nodeId   = 12;
+  TX_message.nodeType = 124;
+  TX_message.gatewayId = 34;
+  TX_message.sensorsData_count = 2;
+  TX_message.sensorsData[0] = data_from_sensors;
+  TX_message.sensorsData[1] = data_from_sensors2;
+}
+
+void loop() {
+  if(serial_out) Serial.print("Loop: ");
+  if(serial_out) Serial.println(loop_count);
+  
+  TX_message_encode_to_buffer(TX_message, TX_stream_buffer, TX_stream_buffer_size)
+  intervalSendLoRaMessage(TX_stream_buffer_size, TX_stream_buffer_size, rf95, LORA_TX_INTERVAL);
+  TX_stream_buffer_size = TXData_t_size;
+  TX_message = TXData_t_init_zero;
+
+
+  int8_t receive_error_code = getLoRaMessage(RX_buffer, RX_buffer_size, rf95);
+  bool RX_decode_status = TX_message_decode_fromn_buffer(RX_msg, RX_buffer, RX_buffer_size);
+  RX_msg = TXData_t_init_zero;
+  RX_buffer_size = RH_RF95_MAX_MESSAGE_LEN;
+  
+  if (!RX_decode_status) {
+      if(serial_out) Serial.print("Decoding failed: ");
+      if(serial_out) Serial.println(PB_GET_ERROR(&stream));
+  }
+  else {
+    Serial.print("Message from node: ");
+    Serial.println(RX_msg.nodeId);
+  }
+  TXData_t rx_msg = TXData_t_init_zero;
+  
+  led_patterns::act_led_pattern(buildin_led);
+  loop_count++;
+}
