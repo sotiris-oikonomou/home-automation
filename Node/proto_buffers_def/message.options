@@ -1,9 +1,0 @@
-SensorData_t.sensorType        int_size:IS_8
-SensorData_t.sensorData        max_size:16
-
-
-TXData_t.tx_count              int_size:IS_8
-TXData_t.nodeId                int_size:IS_16
-TXData_t.nodeType              int_size:IS_8
-TXData_t.gatewayId             int_size:IS_8
-TXData_t.sensorsData           max_count:10
